@@ -1,58 +1,112 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Social Post Manager
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A single-user personal tool to scrape article URLs (blogs, personal pages, news sites), store the readable content, and turn it into social media posts for **X** (and, later, LinkedIn). Publishing authorization is handled with Laravel Socialite used purely as a token broker.
 
-## About Laravel
+> Personal, single-user tool. Login is a single seeded admin account — there is no public registration.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## How it works
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+Paste URL → queued scrape (Readability) → stored Article
+          → generate per-platform drafts (templates) → edit
+          → publish to X (real API)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+1. **Scrape** — paste a URL; a queued job fetches it (static HTML only) and extracts the title, body, excerpt, author, published date, and OG image via a generic Readability pass.
+2. **Compose** — generate draft posts from a hardcoded per-platform template (title + fitted excerpt + link), then edit them with a live character counter.
+3. **Publish** — post to X immediately via the API. Drafts are never auto-posted; you review and click Publish.
 
-## Contributing
+## Tech stack
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- PHP 8.4, Laravel 13
+- Filament v5 (admin panel / UI)
+- Laravel Socialite v5 (OAuth 2.0 token broker for X, with PKCE)
+- `fivefilters/readability.php` (content extraction)
+- SQLite (default), database queue, Pest v4 (tests)
 
-## Code of Conduct
+## Requirements
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- PHP 8.4+, Composer
+- Node.js + npm (for building Filament assets)
+- An **X developer app** configured as a **Web App (confidential client)** with **Read and write** permissions and OAuth 2.0 enabled
 
-## Security Vulnerabilities
+## Installation
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+```
 
-## License
+Set these in `.env`:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```dotenv
+# Single admin login (seeded)
+ADMIN_NAME="Your Name"
+ADMIN_EMAIL=you@example.com
+ADMIN_PASSWORD=change-me
+
+# X (Twitter) OAuth 2.0 — confidential "Web App" with Read and write
+X_CLIENT_ID=...
+X_CLIENT_SECRET=...
+X_REDIRECT_URI="${APP_URL}/twitter/redirect"
+```
+
+Then migrate, seed the admin user, and build assets:
+
+```bash
+php artisan migrate --seed
+npm run build
+```
+
+### X app configuration
+
+In the X developer portal, your app must have:
+
+- **App permissions:** Read and write
+- **Type of app:** Web App, Automated App or Bot (confidential client — required so the client secret works)
+- **Callback URI / Redirect URL:** must match `X_REDIRECT_URI` exactly, e.g. `http://127.0.0.1:8000/twitter/redirect`
+
+The app requests the scopes `users.read`, `tweet.read`, `tweet.write`, and `offline.access` (the last yields a refresh token; X access tokens expire after ~2 hours and are refreshed automatically before publishing).
+
+## Running
+
+```bash
+composer run dev
+```
+
+This runs the dev server, a **queue worker**, log tailing, and Vite together. A queue worker is required — both scraping and publishing run as queued jobs.
+
+Then:
+
+1. Log in at `/admin`.
+2. Go to **Connections → Connect X** and authorize the app.
+3. On **Articles**, add a URL to scrape.
+4. Open the article, click **Generate drafts**, edit the X draft, and **Publish**.
+
+## Testing
+
+```bash
+php artisan test
+vendor/bin/pint   # code style
+```
+
+External services (the X API, Socialite, outbound HTTP) are faked in tests.
+
+## Architecture notes
+
+- **Platform-generic** by design: a `Platform` enum (`x`, `linkedin`), a `Publisher` contract, and a `PublisherFactory`. `XPublisher` is live; `LinkedInPublisher` is a stub until the LinkedIn app is approved.
+- **Scraping** (`App\Services\Scraping`): a queued `ScrapeArticle` job that is idempotent and distinguishes permanent failures (4xx, no readable content → no retry) from transient ones (5xx, network → bounded retry). Includes a basic SSRF guard (http(s) only, blocks private/reserved IPs and localhost).
+- **OAuth** (`App\Services\Social`, `OAuthConnectionController`): thin redirect/callback web routes behind the panel auth guard; tokens are stored encrypted at rest with on-demand refresh.
+- **Composition** (`App\Services\Posts\PostComposer`): platform-aware character weighting — on X every URL counts as 23 characters (t.co); LinkedIn counts real length. Rendering always keeps the URL and truncates the excerpt/title to fit.
+- **Publishing** (`App\Jobs\PublishPost`): **never auto-retries** (`tries = 1`) and uses an **atomic claim** (a single conditional `UPDATE` flipping Draft/Failed → Publishing) plus `ShouldBeUnique` to prevent double-posting, since X has no idempotency key.
+
+### Status model
+
+- **Article:** `pending → scraping → scraped → failed`
+- **Post:** `draft → publishing → published → failed`
+
+## Not included (deferred)
+
+LinkedIn live publishing, saved/reusable URL lists, monitored/scheduled sources, scheduled posting, media/image upload, AI-generated copy, multi-user support, and configurable templates.
