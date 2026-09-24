@@ -42,7 +42,7 @@ return [
         'redirect' => env('X_REDIRECT_URI'),
     ],
 
-    // LinkedIn is deferred until app approval; config is present but unused.
+    // Socialite driver key must match the driver name exactly ('linkedin-openid').
     'linkedin-openid' => [
         'client_id' => env('LINKEDIN_CLIENT_ID'),
         'client_secret' => env('LINKEDIN_CLIENT_SECRET'),

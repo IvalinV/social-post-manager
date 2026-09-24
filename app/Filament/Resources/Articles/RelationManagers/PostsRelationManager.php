@@ -212,7 +212,7 @@ class PostsRelationManager extends RelationManager
     protected function publishBlockReason(Post $record): ?string
     {
         if (! $record->platform->isConnectable()) {
-            return "{$record->platform->getLabel()} publishing is not available yet.";
+            return "{$record->platform->getLabel()} publishing is disabled.";
         }
 
         if (blank($record->body)) {

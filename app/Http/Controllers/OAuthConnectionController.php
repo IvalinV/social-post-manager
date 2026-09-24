@@ -28,7 +28,7 @@ class OAuthConnectionController extends Controller
         $enum = $this->resolvePlatform($platform);
 
         if (! $enum->isConnectable()) {
-            return $this->backWithError("{$enum->getLabel()} connections are not available yet.");
+            return $this->backWithError("{$enum->getLabel()} connections are disabled.");
         }
 
         return Socialite::driver($enum->socialiteDriver())
@@ -62,6 +62,9 @@ class OAuthConnectionController extends Controller
             [
                 'account_id' => $socialUser->getId(),
                 'account_handle' => $socialUser->getNickname() ?: $socialUser->getName(),
+                'account_urn' => $enum === Platform::LinkedIn
+                    ? "urn:li:person:{$socialUser->getId()}"
+                    : null,
                 'access_token' => $socialUser->token,
                 'refresh_token' => $socialUser->refreshToken,
                 'expires_at' => $enum->tokenExpiryFrom($socialUser->expiresIn),

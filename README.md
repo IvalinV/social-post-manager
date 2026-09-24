@@ -96,7 +96,7 @@ External services (the X API, Socialite, outbound HTTP) are faked in tests.
 
 ## Architecture notes
 
-- **Platform-generic** by design: a `Platform` enum (`x`, `linkedin`), a `Publisher` contract, and a `PublisherFactory`. `XPublisher` is live; `LinkedInPublisher` is a stub until the LinkedIn app is approved.
+- **Platform-generic** by design: a `Platform` enum (`x`, `linkedin`), a `Publisher` contract, and a `PublisherFactory`. X and LinkedIn publishing are supported through platform-specific publisher implementations.
 - **Scraping** (`App\Services\Scraping`): a queued `ScrapeArticle` job that is idempotent and distinguishes permanent failures (4xx, no readable content → no retry) from transient ones (5xx, network → bounded retry). Includes a basic SSRF guard (http(s) only, blocks private/reserved IPs and localhost).
 - **OAuth** (`App\Services\Social`, `OAuthConnectionController`): thin redirect/callback web routes behind the panel auth guard; tokens are stored encrypted at rest with on-demand refresh.
 - **Composition** (`App\Services\Posts\PostComposer`): platform-aware character weighting — on X every URL counts as 23 characters (t.co); LinkedIn counts real length. Rendering always keeps the URL and truncates the excerpt/title to fit.
@@ -109,4 +109,4 @@ External services (the X API, Socialite, outbound HTTP) are faked in tests.
 
 ## Not included (deferred)
 
-LinkedIn live publishing, saved/reusable URL lists, monitored/scheduled sources, scheduled posting, media/image upload, AI-generated copy, multi-user support, and configurable templates.
+Saved/reusable URL lists, monitored/scheduled sources, scheduled posting, media/image upload, AI-generated copy, multi-user support, and configurable templates.

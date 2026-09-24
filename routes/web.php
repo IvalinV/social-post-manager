@@ -8,8 +8,8 @@ Route::get('/', function () {
 });
 
 /*
-| OAuth token-broker routes (behind the panel's auth guard). The X callback path
-| must match the URI registered in the X developer app: /twitter/redirect.
+| OAuth token-broker routes (behind the panel's auth guard). Callback paths must
+| match the URIs registered in each provider's developer application.
 */
 Route::middleware('auth')->group(function () {
     Route::get('/oauth/{platform}/connect', [OAuthConnectionController::class, 'connect'])
@@ -18,4 +18,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/twitter/redirect', [OAuthConnectionController::class, 'callback'])
         ->defaults('platform', 'x')
         ->name('oauth.callback.x');
+
+    Route::get('/linkedin/redirect', [OAuthConnectionController::class, 'callback'])
+        ->defaults('platform', 'linkedin')
+        ->name('oauth.callback.linkedin');
 });

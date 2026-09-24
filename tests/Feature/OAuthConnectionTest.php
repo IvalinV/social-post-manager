@@ -20,6 +20,18 @@ function fakeXUser(): SocialiteUser
         ->setApprovedScopes(['tweet.write', 'offline.access']);
 }
 
+function fakeLinkedInUser(): SocialiteUser
+{
+    return (new SocialiteUser)->map([
+        'id' => 'linkedin-member-999',
+        'nickname' => 'linkedin_member',
+        'name' => 'LinkedIn Member',
+    ])->setToken('linkedin-access-token')
+        ->setRefreshToken('linkedin-refresh-token')
+        ->setExpiresIn(5184000)
+        ->setApprovedScopes(['openid', 'profile', 'w_member_social']);
+}
+
 it('requires authentication to start a connection', function () {
     $this->get(route('oauth.connect', ['platform' => 'x']))
         ->assertRedirect('/admin/login');
@@ -30,6 +42,13 @@ it('redirects to the provider when connecting X', function () {
     $this->actingAs(User::factory()->create());
 
     $this->get(route('oauth.connect', ['platform' => 'x']))->assertRedirect();
+});
+
+it('redirects to LinkedIn when connecting LinkedIn', function () {
+    Socialite::fake('linkedin-openid');
+    $this->actingAs(User::factory()->create());
+
+    $this->get(route('oauth.connect', ['platform' => 'linkedin']))->assertRedirect();
 });
 
 it('stores publishing tokens on a successful callback', function () {
@@ -52,6 +71,22 @@ it('stores publishing tokens on a successful callback', function () {
     $raw = DB::table('social_accounts')->where('id', $account->id)->first();
     expect($raw->access_token)->not->toBe('access-token-abc')
         ->and($raw->refresh_token)->not->toBe('refresh-token-xyz');
+});
+
+it('stores LinkedIn publishing tokens and the member URN on callback', function () {
+    Socialite::fake('linkedin-openid', fakeLinkedInUser());
+    $this->actingAs(User::factory()->create());
+
+    $this->get('/linkedin/redirect?code=auth-code&state=state-value')
+        ->assertRedirect(Connections::getUrl());
+
+    $account = SocialAccount::where('platform', Platform::LinkedIn)->first();
+    expect($account)->not->toBeNull()
+        ->and($account->account_id)->toBe('linkedin-member-999')
+        ->and($account->account_urn)->toBe('urn:li:person:linkedin-member-999')
+        ->and($account->access_token)->toBe('linkedin-access-token')
+        ->and($account->refresh_token)->toBe('linkedin-refresh-token')
+        ->and($account->expires_at)->not->toBeNull();
 });
 
 it('falls back to the platform default TTL when the provider omits expires_in', function () {
@@ -88,15 +123,6 @@ it('does not store anything when authorization is declined', function () {
         ->assertRedirect(Connections::getUrl());
 
     expect(SocialAccount::where('platform', Platform::X)->exists())->toBeFalse();
-});
-
-it('refuses to connect a platform that is not available yet', function () {
-    $this->actingAs(User::factory()->create());
-
-    $this->get(route('oauth.connect', ['platform' => 'linkedin']))
-        ->assertRedirect(Connections::getUrl());
-
-    expect(SocialAccount::where('platform', Platform::LinkedIn)->exists())->toBeFalse();
 });
 
 it('returns 404 for an unknown platform', function () {

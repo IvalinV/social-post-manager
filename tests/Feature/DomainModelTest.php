@@ -81,3 +81,21 @@ it('resolves per-platform limits from config', function () {
         ->and(Platform::LinkedIn->maxLength())->toBe(3000)
         ->and(Platform::LinkedIn->urlLength())->toBeNull();
 });
+
+it('uses LinkedIn access token lifetime when expiry is omitted', function () {
+    $expiry = Platform::LinkedIn->tokenExpiryFrom(null);
+
+    expect($expiry)->not->toBeNull()
+        ->and($expiry->between(now()->addDays(59), now()->addDays(61)))->toBeTrue();
+});
+
+it('preserves manual articles when rolling back the nullable URL migration', function () {
+    $article = Article::factory()->create(['url' => null]);
+    $migration = require base_path('database/migrations/2026_09_23_000000_make_articles_url_nullable.php');
+
+    $migration->down();
+
+    expect($article->fresh()->url)->toBe('');
+
+    $migration->up();
+});

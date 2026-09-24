@@ -108,12 +108,56 @@ it('only posts once when two jobs run for the same draft (atomic claim)', functi
     Http::assertSentCount(1);
 });
 
-it('marks a LinkedIn post failed because the publisher is stubbed', function () {
-    $post = Post::factory()->forPlatform(Platform::LinkedIn)->create(['status' => PostStatus::Draft]);
+it('publishes a LinkedIn post through the Posts API', function () {
+    SocialAccount::factory()->forPlatform(Platform::LinkedIn)->create([
+        'account_id' => 'linkedin-member-999',
+        'account_urn' => 'urn:li:person:linkedin-member-999',
+        'access_token' => 'linkedin-token',
+        'expires_at' => now()->addDay(),
+    ]);
+    Http::fake([
+        'api.linkedin.com/rest/posts' => Http::response([], 201, [
+            'x-restli-id' => 'urn:li:share:999',
+        ]),
+    ]);
+
+    $post = Post::factory()->forPlatform(Platform::LinkedIn)->create([
+        'status' => PostStatus::Draft,
+        'body' => 'A LinkedIn post',
+    ]);
 
     runPublish($post);
 
     $post->refresh();
-    expect($post->status)->toBe(PostStatus::Failed)
-        ->and($post->error_message)->toContain('not available yet');
+    expect($post->status)->toBe(PostStatus::Published)
+        ->and($post->platform_post_id)->toBe('urn:li:share:999')
+        ->and($post->platform_url)->toBe('https://www.linkedin.com/feed/update/urn:li:share:999')
+        ->and($post->error_message)->toBeNull();
+
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'https://api.linkedin.com/rest/posts'
+            && $request->hasHeader('Linkedin-Version', '202609')
+            && $request->hasHeader('X-Restli-Protocol-Version', '2.0.0')
+            && $request->data() === [
+                'author' => 'urn:li:person:linkedin-member-999',
+                'commentary' => 'A LinkedIn post',
+                'visibility' => 'PUBLIC',
+                'distribution' => [
+                    'feedDistribution' => 'MAIN_FEED',
+                    'targetEntities' => [],
+                    'thirdPartyDistributionChannels' => [],
+                ],
+                'lifecycleState' => 'PUBLISHED',
+                'isReshareDisabledByAuthor' => false,
+            ];
+    });
+});
+
+it('fails a LinkedIn post when no LinkedIn account is connected', function () {
+    $post = Post::factory()->forPlatform(Platform::LinkedIn)->create(['status' => PostStatus::Draft]);
+
+    runPublish($post);
+
+    expect($post->refresh()->status)->toBe(PostStatus::Failed)
+        ->and($post->error_message)->toContain('LinkedIn is not connected');
 });

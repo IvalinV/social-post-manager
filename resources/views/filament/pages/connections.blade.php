@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div class="grid gap-6 p-4 sm:grid-cols-2">
         @foreach ($this->connections() as $connection)
             @php
                 $platform = $connection['platform'];
@@ -13,9 +13,7 @@
                 </x-slot>
 
                 <x-slot name="description">
-                    @if (! $connection['connectable'])
-                        Not available yet — deferred until the platform app is approved.
-                    @elseif ($account && $expired)
+                    @if ($account && $expired)
                         Token expired — it will be refreshed automatically on the next publish, or reconnect.
                     @elseif ($account)
                         Ready to publish.
@@ -43,7 +41,7 @@
                         @endif
                     @else
                         <x-filament::badge color="gray">
-                            {{ $connection['connectable'] ? 'Not connected' : 'Unavailable' }}
+                            Not connected
                         </x-filament::badge>
                     @endif
                 </div>

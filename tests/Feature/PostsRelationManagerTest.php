@@ -29,11 +29,14 @@ it('generates one draft per connectable platform from templates', function () {
     ])->callTableAction('generateDrafts');
 
     $posts = $article->posts()->get();
-    // Only X is connectable; LinkedIn is skipped.
-    expect($posts)->toHaveCount(1)
-        ->and($posts->first()->platform)->toBe(Platform::X)
-        ->and($posts->first()->status)->toBe(PostStatus::Draft)
-        ->and($posts->first()->body)->toContain('Headline');
+    $xPost = $posts->firstWhere('platform', Platform::X);
+
+    expect($posts)->toHaveCount(2)
+        ->and($posts->pluck('platform')->all())->toContain(Platform::X)
+        ->and($posts->pluck('platform')->all())->toContain(Platform::LinkedIn)
+        ->and($xPost)->not->toBeNull()
+        ->and($xPost->status)->toBe(PostStatus::Draft)
+        ->and($xPost->body)->toContain('Headline');
 });
 
 it('does not duplicate drafts when generated twice', function () {

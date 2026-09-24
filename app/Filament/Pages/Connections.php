@@ -91,10 +91,6 @@ class Connections extends Page
             ->label("Connect {$platform->getLabel()}")
             ->icon($platform->getIcon())
             ->color('primary')
-            ->when(
-                $platform->isConnectable(),
-                fn (Action $action): Action => $action->url(route('oauth.connect', ['platform' => $platform->value])),
-                fn (Action $action): Action => $action->disabled()->tooltip('Not available yet'),
-            );
+            ->url(route('oauth.connect', ['platform' => $platform->value]));
     }
 }

@@ -12,13 +12,20 @@ class CreateArticle extends CreateRecord
 {
     protected static string $resource = ArticleResource::class;
 
+    protected bool $shouldScrape = true;
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['status'] = ArticleStatus::Pending;
+        $this->shouldScrape = ($data['source_mode'] ?? 'scrape') === 'scrape';
+        unset($data['source_mode']);
+
+        $data['status'] = $this->shouldScrape
+            ? ArticleStatus::Pending
+            : ArticleStatus::Scraped;
 
         return $data;
     }
@@ -31,6 +38,16 @@ class CreateArticle extends CreateRecord
 
     protected function afterCreate(): void
     {
+        if (! $this->shouldScrape) {
+            Notification::make()
+                ->title('Article created')
+                ->body('The manually entered article is ready for post composition.')
+                ->success()
+                ->send();
+
+            return;
+        }
+
         ScrapeArticle::dispatch($this->record);
 
         Notification::make()

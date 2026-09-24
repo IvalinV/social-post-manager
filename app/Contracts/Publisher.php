@@ -8,8 +8,7 @@ use App\Services\Publishing\PublishResult;
 
 /**
  * Publishes a single post to a specific social platform. Implementations are
- * resolved per platform (see Phase 5): XPublisher is live, LinkedInPublisher
- * is stubbed until its app is approved.
+ * resolved per platform (see PublisherFactory).
  */
 interface Publisher
 {

@@ -52,16 +52,11 @@ enum Platform: string implements HasIcon, HasLabel
     }
 
     /**
-     * Whether this platform can currently be connected/published. LinkedIn is
-     * deferred until its developer app and "Share on LinkedIn" product are
-     * approved, so it is stubbed off for now.
+     * Whether this platform can currently be connected and published.
      */
     public function isConnectable(): bool
     {
-        return match ($this) {
-            self::X => true,
-            self::LinkedIn => false,
-        };
+        return true;
     }
 
     /**
@@ -84,7 +79,7 @@ enum Platform: string implements HasIcon, HasLabel
     {
         return match ($this) {
             self::X => 7200,
-            self::LinkedIn => null,
+            self::LinkedIn => 60 * 24 * 60 * 60,
         };
     }
 
